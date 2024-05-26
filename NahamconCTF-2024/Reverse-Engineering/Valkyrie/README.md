@@ -83,7 +83,7 @@ do {
 So basically, it performs swaps for each character with a random index. So our passphrase is first xor'd, then scrambled. But what is it being compared with?
 
 ### What The Scrambled Passphrase Is Compared With
-The next 150 or so lines in the decompiled program are all setting those 100+ local variables to values based on a series of complex binary computations. After spending a little while trying to understand it, I ended up jumping down to the bottom to find the code that actually evaluates whether the passphrase is correct. The loop looks like this (simplified for brevity):
+The next 150 or so lines in the decompiled program are all setting those 100+ local variables to values based on a series of complex binary computations. After spending a little while trying to understand it, I ended up jumping down to the bottom to find the code that actually evaluates whether the passphrase is correct. The [loop](valkyrie.c#L317) looks like this (simplified for brevity):
 ```
   comp_counter = 0;
   do {
@@ -99,10 +99,10 @@ LAB_00107508:
     comp_counter = comp_counter + 1;
   } while( true );
 ```
-So it evaluates the first 25 characters of local_88 (where our scrambled passphrase is stored), and compares it against local_68. So now we just need to know what is stored in local_68. Looking at where local_68 was defined, it is only an array of 4 bytes, so our scrambled passphrase will also be compared against the values next to local_68 in memory. I determined these values by setting breakpoints when each variable is assigned and noting the value in the register when it was assigned, though I realized later it probably would have been more efficient to just dump memory at the point of comparison in gdb (I am very new to reverse engineering). These values can be found in bytes.txt.
+So it evaluates the first 25 characters of local_88 (where our scrambled passphrase is stored), and compares it against local_68. So now we just need to know what is stored in local_68. Looking at [where local_68 was defined](valkyrie.c#L85), it is only an array of 4 bytes, so our scrambled passphrase will also be compared against the values next to local_68 in memory. I determined these values by setting breakpoints when each variable is assigned and noting the value in the register when it was assigned, though I realized later it probably would have been more efficient to just dump memory at the point of comparison in gdb (I am very new to reverse engineering). These values can be found in bytes.txt.
 
 ## Unscrambling the Passphrase
-Now that we know the bytes our scrambled passphrase is being compared against and the method used to scramble them, all that is left to do is unscramble those bytes to get the required input. To do this we will first perform the same swaps they did, but in reverse order. Then, xor all of the bytes by the same amount they did. I broke this down into two stages
+Now that we know the bytes our scrambled passphrase is being compared against and the method used to scramble them, all that is left to do is unscramble those bytes to get the required input. To do this we will first perform the same swaps they did, but in reverse order. Then, xor all of the bytes by the same amount they did. I broke this down into two stages:
 
 ### Generating the XOR values and Swap Indices
 In order to make sure our values match with the one used, I used C to generate the random numbers. I used `srand` with the [same value](valkyrie.c#L169) that is used in the program in order to ensure the same sequence would be generated. I then outputed this sequence in a format that I could easily bring over to python to do the operations. The program to do this is [generate.c](generate.c), and this is what is outputs:
