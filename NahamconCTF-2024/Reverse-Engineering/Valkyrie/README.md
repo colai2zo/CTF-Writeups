@@ -26,7 +26,7 @@ This looked similar to a section from the previous challenges which evaluates th
 ## The Comparison Function
 Let's take a look at this comparison function (labeled `o___76` in Ghidra, and a slightly deobfuscated version available here in [valkyrie.c](valkyrie.c)). Yikes! Over 100 local variables and a wall of calculations even more disgusting than in `main`. Since it would have been terrible to figure out what all of this does by hand, I opened it up in GDB and started stepping through the code. 
 
-### How the Scramble the Passphrase
+### How they Scramble the Passphrase
 Eventually I got to this section:
 ```
   for (local_d4 = 0; local_d4 < 0x1a;
