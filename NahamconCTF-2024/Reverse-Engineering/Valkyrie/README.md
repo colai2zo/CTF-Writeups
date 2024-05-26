@@ -24,7 +24,7 @@ Opening it up in Ghidra, at first glance it was much more confusing than the pre
 This looked similar to a section from the previous challenges which evaluates the user input, and returns 1 if it matches the expected value, or 0 if not. If 1 is received, then it prints the flag. 
 
 ## The Comparison Function
-Let's take a look at this comparison function (labeled `o___76` in Ghidra, and a slightly deobfuscated version available here in valkyrie.c). Yikes! Over 100 local variables and a wall of calculations even more disgusting than in `main`. Since it would have been terrible to figure out what all of this does by hand, I opened it up in GDB and started stepping through the code. 
+Let's take a look at this comparison function (labeled `o___76` in Ghidra, and a slightly deobfuscated version available here in [valkyrie.c](valkyrie.c)). Yikes! Over 100 local variables and a wall of calculations even more disgusting than in `main`. Since it would have been terrible to figure out what all of this does by hand, I opened it up in GDB and started stepping through the code. 
 
 ### How the Scramble the Passphrase
 Eventually I got to this section:
@@ -105,7 +105,7 @@ So it evaluates the first 25 characters of local_88 (where our scrambled passphr
 Now that we know the bytes our scrambled passphrase is being compared against and the method used to scramble them, all that is left to do is unscramble those bytes to get the required input. To do this we will first perform the same swaps they did, but in reverse order. Then, xor all of the bytes by the same amount they did. I broke this down into two stages
 
 ### Generating the XOR values and Swap Indices
-In order to make sure our values match with the one used, I used C to generate the random numbers. I used `srand` with the same value that is used in the program in order to ensure the same sequence would be generated. I then outputed this sequence in a format that I could easily bring over to python to do the operations. The program to do this is `generate.c`, and this is what is outputs:
+In order to make sure our values match with the one used, I used C to generate the random numbers. I used `srand` with the [same value](valk.c#L169) that is used in the program in order to ensure the same sequence would be generated. I then outputed this sequence in a format that I could easily bring over to python to do the operations. The program to do this is [generate.c](generate.c), and this is what is outputs:
 ```
 $ ./generate
 **** XOR (index, value) ****
