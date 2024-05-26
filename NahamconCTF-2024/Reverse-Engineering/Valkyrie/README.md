@@ -116,7 +116,7 @@ $ ./generate
 ```
 
 ### Using Python to Generate the Passphrase
-I wrote `reverse.py` to take the scrambled bytes, xor values, and swap indices from the C program, and actually unscramble them to get our passphrase. I ran it, and it gave me this:
+I wrote [reverse.py](reverse.py) to take the scrambled bytes, xor values, and swap indices from the C program, and actually unscramble them to get our passphrase. I ran it, and it gave me this:
 ```
 $ python3 reverse.py
 You've been thunderstÜuck
