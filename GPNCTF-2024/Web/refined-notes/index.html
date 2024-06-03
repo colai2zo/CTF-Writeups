@@ -1,0 +1,21 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refined Note Taking App</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.4/dist/purify.min.js"></script>
+    <script defer src="/static/index.js"></script>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-lg mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Refined Note Taking App</h1>
+        <div id="container" class="mb-4 flex flex-col">
+            <iframe id="noteframe" class="hidden bg-white w-full px-3 py-2 border rounded-md h-60" srcdoc=""></iframe>
+            <textarea type="text" id="note" class=" w-full px-3 py-2 border rounded-md h-60" placeholder="Enter your note here"></textarea>
+            <button id="submit" class=" mt-2 px-4 py-2 bg-blue-500 text-white rounded-md">Add Note</button>
+        </div>
+    </div>
+</body>
